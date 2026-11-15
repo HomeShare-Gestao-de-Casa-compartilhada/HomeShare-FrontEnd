@@ -8,6 +8,9 @@ const dt = v => new Date(v).toLocaleString('pt-BR', { dateStyle: 'short', timeSt
 const dia = v => new Date(v + 'T00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
 const hoje = () => new Date().toISOString().slice(0, 10);
 const cid = () => S.casa.id, base = () => `/api/casas/${cid()}`, lider = () => S.casa?.souLider;
+// Convite vindo do link (?convite=CODIGO): guarda para sobreviver ao login/cadastro.
+const _cv = new URLSearchParams(location.search).get('convite');
+if (_cv) { sessionStorage.convite = _cv.trim().toUpperCase(); history.replaceState(null, '', location.pathname + location.hash); }
 const tab = (k, d) => S.tab[k] || d;
 const empty = t => `<p class="empty">${t}</p>`;
 
@@ -73,7 +76,23 @@ function authView() {
     criar: `<form data-f="register">${inp('nome', 'Nome', 'text', '', 'required maxlength=100')}${inp('email', 'E-mail', 'email', '', 'required')}${inp('senha', 'Senha (8 a 72 caracteres)', 'password', '', 'required minlength=8 maxlength=72')}<button class="btn">Criar conta</button></form>`,
     confirmar: `<p class="sub">Enviamos um código para o seu e-mail. Cole-o abaixo (vale 15 minutos).</p><form data-f="confirm">${inp('token', 'Código de confirmação', 'text', tk || '', 'required')}<button class="btn">Confirmar cadastro</button></form>`
   }[t];
-  return shell(`<h2>Bem-vindo ao HomeShare</h2><p class="sub">Tarefas, contas e avisos da casa compartilhada.</p>${tbs}<div class="card">${f}</div>`, false);
+  return shell(`<h2>Bem-vindo ao HomeShare</h2>${sessionStorage.convite ? '<div class="card gestor">Você recebeu um convite para entrar em uma casa. Entre ou crie sua conta para aceitar.</div>' : ''}<p class="sub">Tarefas, contas e avisos da casa compartilhada.</p>${tbs}<div class="card">${f}</div>`, false);
+}
+async function conviteView() {
+  const code = sessionStorage.convite;
+  let p;
+  try { p = await api('GET', '/api/convites/' + code); } catch (x) {
+    delete sessionStorage.convite;
+    return shell(`<h2>Convite inválido</h2><p class="sub">Este convite não existe. Peça um novo link ao líder da casa.</p><button class="btn" data-a="cv-recusar">Voltar</button>`, false);
+  }
+  return shell(`<h2>Convite para uma casa</h2><div class="card"><h3>${esc(p.casaNome)}</h3><p class="sub">${p.valido ? 'Válido até ' + dt(p.validade) : 'Este convite expirou, foi cancelado ou já foi usado.'}</p>
+    <div class="row">${p.valido ? '<button class="btn" data-a="cv-aceitar">Entrar na casa</button>' : ''}<button class="btn ghost" data-a="cv-recusar">${p.valido ? 'Agora não' : 'Voltar'}</button></div></div>`, false);
+}
+async function convidar(horas) {
+  const c = await api('POST', base() + '/convites', { validadeHoras: +horas });
+  const wa = 'https://wa.me/?text=' + encodeURIComponent('Entre na nossa casa no HomeShare: ' + c.link);
+  ask('Convite criado', `<p class="sub">Válido até ${dt(c.validade)}. Uso único: cada link serve para uma pessoa.</p><label>Link<input readonly value="${esc(c.link)}" onfocus="this.select()"></label><p><a href="${wa}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a></p>`,
+    async () => { await navigator.clipboard.writeText(c.link); toast('Link copiado'); }, 'Copiar link');
 }
 async function casasView() {
   const convite = new URLSearchParams(location.search).get('convite') || '';
@@ -154,6 +173,7 @@ async function eventoForm(id) {
 async function casaView() {
   const ms = await loadMembros();
   return shell(`<div class="card"><h2 style="margin-top:0">${esc(S.casa.nome)} ${lider() ? '<span class="tag">GESTOR</span>' : ''}</h2><div class="sub">${ms.length} moradores · líder: ${esc(S.casa.liderNome)}</div>${gestorBtn('casa-rename', 'Renomear')}</div>
+   ${lider() ? '<div class="card gestor"><h3>Convidar alguém <span class="tag">GESTOR</span></h3><p class="sub">Gere um link de uso único e envie pelo WhatsApp.</p><button class="btn" data-a="cv-gerar">Gerar link de convite</button></div>' : ''}
    <div class="card">${[['avisos', 'Quadro de avisos e regras'], ['gastos', 'Gastos fixos'], ['contatos', 'Contatos importantes'], ['moradores', 'Moradores e convites'], ['compras', 'Lista de compras']].map(([h, n]) => `<a class="link" href="#/${h}">${n}<span>›</span></a>`).join('')}</div>
    <div class="card"><button class="btn danger" data-a="casa-sair">Sair da casa</button>${lider() ? '<p class="sub">Ao sair, o morador mais antigo assume a liderança. Se preferir, passe a liderança antes em Moradores.</p>' : ''}</div>`);
 }
@@ -180,7 +200,7 @@ async function moradoresView() {
   const ms = await loadMembros(), cv = lider() ? await api('GET', base() + '/convites') : [];
   return shell(`${voltar}<h2>Moradores</h2><div class="card">${ms.map(m => `<div class="item"><div class="grow t">${esc(m.nome)} ${m.lider ? '<span class="tag">Líder</span>' : ''}</div>${lider() && !m.lider ? `<button class="btn sm ghost" data-a="mem-lider" data-id="${m.membroId}">Tornar líder</button><button class="btn sm danger" data-a="mem-del" data-id="${m.membroId}">Remover</button>` : ''}</div>`).join('')}${lider() ? '' : ''}</div>
    ${lider() ? `<div class="card gestor"><div class="row"><h3 class="grow">Convites <span class="tag">GESTOR</span></h3><button class="btn sm" data-a="cv-new">Gerar convite</button></div>
-   ${cv.filter(c => c.valido).map(c => `<div class="item"><div class="grow"><code>${c.codigo}</code><div class="sub">vale até ${dt(c.validade)}</div></div><button class="btn sm ghost" data-a="cv-copy" data-id="${c.codigo}">Copiar link</button><button class="btn sm danger" data-a="cv-del" data-id="${c.id}">Cancelar</button></div>`).join('') || empty('Nenhum convite ativo.')}</div>` : ''}`);
+   ${cv.filter(c => c.valido).map(c => `<div class="item"><div class="grow"><code>${c.codigo}</code><div class="sub">vale até ${dt(c.validade)}</div></div><button class="btn sm ghost" data-a="cv-copy" data-id="${esc(c.link)}">Copiar link</button><button class="btn sm danger" data-a="cv-del" data-id="${c.id}">Cancelar</button></div>`).join('') || empty('Nenhum convite ativo.')}</div>` : ''}`);
 }
 async function comprasView() {
   const it = await api('GET', base() + '/itens'), li = x => `<div class="item ${x.status === 'COMPRADO' ? 'done' : ''}"><input type="checkbox" data-c="comprar" data-id="${x.id}" ${x.status === 'COMPRADO' ? 'checked disabled' : ''}><div class="grow"><div class="t">${esc(x.nome)}${x.quantidade ? ' (' + x.quantidade + ')' : ''}</div><div class="sub">${x.status === 'COMPRADO' ? 'comprado por ' + esc(x.compradoPor.nome) : 'pedido por ' + esc(x.adicionadoPor.nome)}</div></div>${x.adicionadoPor.id === S.casa.meuMembroId || lider() ? `<button class="icon" data-a="it-del" data-id="${x.id}" aria-label="Remover">✕</button>` : ''}</div>`;
@@ -219,8 +239,14 @@ const ACT = {
   'gt-del': d => sure('Apagar este gasto?', () => api('DELETE', `${base()}/gastos/${d.id}`)),
   'mem-lider': d => sure('Passar a liderança para este morador?', async () => { await api('PUT', base() + '/lideranca', { novoLiderMembroId: +d.id }); await loadCasas(); }, 'Liderança transferida'),
   'mem-del': d => sure('Remover este morador da casa?', () => api('DELETE', `${base()}/membros/${d.id}`), 'Morador removido'),
-  'cv-new': () => ask('Gerar convite', sel('validadeHoras', 'Validade', [[24, '24 horas'], [48, '2 dias'], [168, '7 dias']], 48), o => api('POST', base() + '/convites', { validadeHoras: +o.validadeHoras }), 'Gerar'),
-  'cv-copy': d => navigator.clipboard.writeText(`${location.origin}/?convite=${d.id}`).then(() => toast('Link copiado')),
+  'cv-new': () => ask('Gerar convite', sel('validadeHoras', 'Validade', [[24, '24 horas'], [48, '2 dias'], [168, '7 dias']], 48), o => convidar(o.validadeHoras), 'Gerar'),
+  'cv-gerar': run(() => convidar(48)),
+  'cv-aceitar': run(async () => {
+    const code = sessionStorage.convite;
+    try { const c = await api('POST', `/api/convites/${code}/entrar`); LS.casaId = c.id; location.hash = '#/inicio'; await loadCasas(); } finally { delete sessionStorage.convite; }
+  }, 'Você entrou na casa!'),
+  'cv-recusar': () => { delete sessionStorage.convite; render(); },
+  'cv-copy': d => navigator.clipboard.writeText(d.id).then(() => toast('Link copiado')),
   'cv-del': d => sure('Cancelar este convite?', () => api('DELETE', `${base()}/convites/${d.id}`)),
   'it-del': d => sure('Remover este item?', () => api('DELETE', `${base()}/itens/${d.id}`))
 };
@@ -262,6 +288,7 @@ async function render() {
   const app = $('#app');
   try {
     if (!S.token) { app.innerHTML = authView(); return; }
+    if (sessionStorage.convite) { app.innerHTML = await conviteView(); return; }
     let r = location.hash.split('/')[1] || 'inicio';
     if (!S.casa) r = 'casas';
     app.innerHTML = await (ROTAS[r] || inicioView)();
