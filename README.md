@@ -1,59 +1,61 @@
-# HomeShare - Front-end
+# HomeShare (front-end)
 
-Interface web do HomeShare em **HTML, CSS e JavaScript puro** (sem build, sem Node para compilar). Mobile-first, com tema **escuro** (cores do YouTube) e **claro**, alternados pelo botão ◐ (a escolha fica salva).
+A parte visual do HomeShare. É só HTML, CSS e JavaScript, sem framework e sem build, então não tem `npm install` nem nada pra compilar. Funciona bem no celular e tem tema escuro (nas cores do YouTube) e claro. O botão ◐ no topo troca, e ele lembra da sua escolha.
 
-## Requisitos
-- Back-end HomeShare rodando (http://localhost:8080)
-- Node.js só para o servidor estático (`npx serve`), ou qualquer outro servidor estático
+## Pra rodar
 
-## Como rodar
-1. Suba o back-end.
-2. Nesta pasta: `npx serve -s -l 3000`
-3. Abra http://localhost:3000
+Primeiro sobe o back-end (porta 8080). Depois, aqui dentro desta pasta:
 
-Use a porta **3000** (ou 5173): são as liberadas no CORS do back-end (`CORS_ALLOWED_ORIGINS`). O `-s` é necessário para os links de e-mail e de convite abrirem direto na tela certa.
-
-Outra URL de API: edite `js/config.js`.
-
-## Estrutura
 ```
-index.html        página única
-css/styles.css    tema escuro/claro e layout
-js/config.js      URL da API
-js/app.js         telas, rotas e chamadas ao back-end
+apenas clique para abrir no navegador e já ira funcionar
 ```
 
-## Como usar
-1. **Criar conta:** informe nome, e-mail e senha. Um código chega por e-mail (em modo teste, no e-mail configurado no back-end). Cole o código em *Confirmar e-mail* (ou abra o link do e-mail). Depois, entre.
-2. **Criar casa:** quem cria vira o líder (GESTOR).
-3. **Convidar alguém (líder):** aba **Casa > Gerar link de convite**. Copie o link ou envie pelo WhatsApp.
-4. **Entrar por convite:** a pessoa abre o link, entra ou cria a conta e aceita o convite. O link vale para uma pessoa e expira (48 h por padrão). Também dá para colar o código em *Entrar com convite*.
-5. Use as abas **Início, Tarefas, Agenda e Casa** (avisos, regras, gastos, contatos, moradores e lista de compras).
+E abre http://localhost:3000.
 
-## Telas e rotas do back-end
-| Tela | Rotas |
-|---|---|
-| Entrar / cadastro | `POST /api/auth/register`, `/confirm`, `/login` |
-| Convite e casas | `GET /api/convites/{codigo}`, `POST /api/convites/{codigo}/entrar`, `POST/GET /api/casas` |
-| Início | `tarefas/minhas`, `eventos`, `avisos`, `gastos?mes=` |
-| Tarefas | `tarefas`, `tarefas/minhas`, `tarefas/historico`, `PUT/DELETE tarefas/{id}`, `POST tarefas/{id}/concluir` |
-| Agenda | `eventos` (CRUD), `espacos`, `espacos/{id}/reservas`, `reservas` |
-| Casa | `PUT /api/casas/{id}`, `POST /api/casas/{id}/sair`, `PUT .../lideranca` |
-| Avisos e regras | `avisos`, `regras` |
-| Gastos | `gastos`, `gastos/parcelas/{id}/pagamento` |
-| Contatos | `contatos` |
-| Moradores e convites | `membros`, `convites`, `DELETE .../membros/{id}` |
-| Compras | `itens`, `itens/{id}/comprar` |
+Precisa ser na porta 3000 (ou 5173), porque são as que o back-end libera no CORS. O `-s` também importa: é ele que faz os links de convite e de confirmação de e-mail abrirem direto na tela certa em vez de dar "Cannot GET".
 
-(todas sob `/api/casas/{casaId}/...`, exceto auth e convites por código)
+Se o back-end estiver em outro endereço, muda o valor em `js/config.js`.
 
-## Tema
-Escuro: fundo `#0f0f0f`, superfícies `#212121`, hover/chips `#272727`, texto `#F1F1F1`/`#AAAAAA`, links `#3EA6FF`. A logo usa um azul mais suave (`#5a9fe0`).
+## Usando
 
-## Problemas comuns
-| Sintoma | Causa |
-|---|---|
-| "Failed to fetch" / erro de CORS | back-end desligado, ou front fora das portas 3000/5173 |
-| Link de convite/e-mail dá "Cannot GET" | rode com `npx serve -s` |
-| Redirecionado para o login | token expirou (2 h): entre de novo |
-| Convite "expirou ou já foi usado" | peça um novo link ao líder |
+1. **Criar conta:** nome, e-mail e senha. Um código vai pro e-mail (se o back-end estiver no modo de teste, o código aparece no console dele). Cola o código na aba "Confirmar e-mail" e depois entra.
+2. **Criar a casa:** quem cria vira o líder, que aparece com a etiqueta GESTOR.
+3. **Chamar os outros:** o líder vai na aba Casa e clica em "Gerar link de convite". Dá pra copiar o link ou mandar direto pelo WhatsApp.
+4. **Entrar por convite:** a pessoa abre o link, faz login ou cria a conta, e aparece uma tela perguntando se quer entrar na casa. Cada link serve pra uma pessoa e vale 48 horas. Também dá pra colar só o código na tela "Entrar com convite".
+5. Daí é usar as abas de baixo: Início, Tarefas, Agenda e Casa. Dentro de Casa ficam avisos, regras, gastos, contatos, moradores e lista de compras.
+
+## O que tem em cada pasta
+
+- `index.html`: a página única
+- `css/styles.css`: cores e layout
+- `js/config.js`: endereço da API
+- `js/app.js`: as telas e as chamadas ao back-end
+
+## Quais rotas cada tela usa
+
+Tudo fica embaixo de `/api/casas/{casaId}/...`, menos login e convite por código.
+
+- **Login e cadastro:** `/api/auth/register`, `/confirm` e `/login`
+- **Entrar numa casa:** `GET /api/convites/{codigo}` e `POST /api/convites/{codigo}/entrar`
+- **Início:** `tarefas/minhas`, `eventos`, `avisos` e `gastos?mes=`
+- **Tarefas:** `tarefas`, `tarefas/minhas`, `tarefas/historico` e `tarefas/{id}/concluir`
+- **Agenda:** `eventos`, `espacos`, `espacos/{id}/reservas` e `reservas`
+- **Casa:** `PUT` na casa, `sair` e `lideranca`
+- **Avisos e regras:** `avisos` e `regras`
+- **Gastos:** `gastos` e `gastos/parcelas/{id}/pagamento`
+- **Contatos:** `contatos`
+- **Moradores e convites:** `membros` e `convites`
+- **Compras:** `itens` e `itens/{id}/comprar`
+
+## Se der problema
+
+- **"Failed to fetch" ou erro de CORS:** o back-end está desligado, ou o front está rodando numa porta diferente de 3000 ou 5173.
+- **Link de convite dá "Cannot GET":** faltou o `-s` no `npx serve`.
+- **Voltou pra tela de login do nada:** o token expirou (dura 2 horas). É só entrar de novo.
+- **Convite "expirou ou já foi usado":** pede um link novo pro líder da casa.
+
+## Cores do tema escuro
+
+Fundo `#0f0f0f`, superfícies `#212121`, hover e chips `#272727`, texto `#F1F1F1` e `#AAAAAA`, links `#3EA6FF`. A logo usa um azul mais fraquinho, `#5a9fe0`.
+
+
